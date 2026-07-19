@@ -19,6 +19,8 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedToolsSlugRouteImport } from './routes/_authenticated/tools.$slug'
+import { Route as AuthenticatedCreateVideoRouteImport } from './routes/_authenticated/create.video'
+import { Route as AuthenticatedCreatePhotoRouteImport } from './routes/_authenticated/create.photo'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -69,6 +71,18 @@ const AuthenticatedToolsSlugRoute = AuthenticatedToolsSlugRouteImport.update({
   path: '/$slug',
   getParentRoute: () => AuthenticatedToolsRoute,
 } as any)
+const AuthenticatedCreateVideoRoute =
+  AuthenticatedCreateVideoRouteImport.update({
+    id: '/create/video',
+    path: '/create/video',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCreatePhotoRoute =
+  AuthenticatedCreatePhotoRouteImport.update({
+    id: '/create/photo',
+    path: '/create/photo',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -79,6 +93,8 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/tools': typeof AuthenticatedToolsRouteWithChildren
   '/api/generate-image': typeof ApiGenerateImageRoute
+  '/create/photo': typeof AuthenticatedCreatePhotoRoute
+  '/create/video': typeof AuthenticatedCreateVideoRoute
   '/tools/$slug': typeof AuthenticatedToolsSlugRoute
 }
 export interface FileRoutesByTo {
@@ -90,6 +106,8 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/tools': typeof AuthenticatedToolsRouteWithChildren
   '/api/generate-image': typeof ApiGenerateImageRoute
+  '/create/photo': typeof AuthenticatedCreatePhotoRoute
+  '/create/video': typeof AuthenticatedCreateVideoRoute
   '/tools/$slug': typeof AuthenticatedToolsSlugRoute
 }
 export interface FileRoutesById {
@@ -103,6 +121,8 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/tools': typeof AuthenticatedToolsRouteWithChildren
   '/api/generate-image': typeof ApiGenerateImageRoute
+  '/_authenticated/create/photo': typeof AuthenticatedCreatePhotoRoute
+  '/_authenticated/create/video': typeof AuthenticatedCreateVideoRoute
   '/_authenticated/tools/$slug': typeof AuthenticatedToolsSlugRoute
 }
 export interface FileRouteTypes {
@@ -116,6 +136,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/tools'
     | '/api/generate-image'
+    | '/create/photo'
+    | '/create/video'
     | '/tools/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -127,6 +149,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/tools'
     | '/api/generate-image'
+    | '/create/photo'
+    | '/create/video'
     | '/tools/$slug'
   id:
     | '__root__'
@@ -139,6 +163,8 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/tools'
     | '/api/generate-image'
+    | '/_authenticated/create/photo'
+    | '/_authenticated/create/video'
     | '/_authenticated/tools/$slug'
   fileRoutesById: FileRoutesById
 }
@@ -222,6 +248,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedToolsSlugRouteImport
       parentRoute: typeof AuthenticatedToolsRoute
     }
+    '/_authenticated/create/video': {
+      id: '/_authenticated/create/video'
+      path: '/create/video'
+      fullPath: '/create/video'
+      preLoaderRoute: typeof AuthenticatedCreateVideoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/create/photo': {
+      id: '/_authenticated/create/photo'
+      path: '/create/photo'
+      fullPath: '/create/photo'
+      preLoaderRoute: typeof AuthenticatedCreatePhotoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -241,6 +281,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedToolsRoute: typeof AuthenticatedToolsRouteWithChildren
+  AuthenticatedCreatePhotoRoute: typeof AuthenticatedCreatePhotoRoute
+  AuthenticatedCreateVideoRoute: typeof AuthenticatedCreateVideoRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -248,6 +290,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedToolsRoute: AuthenticatedToolsRouteWithChildren,
+  AuthenticatedCreatePhotoRoute: AuthenticatedCreatePhotoRoute,
+  AuthenticatedCreateVideoRoute: AuthenticatedCreateVideoRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
