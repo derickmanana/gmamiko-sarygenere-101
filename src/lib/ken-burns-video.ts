@@ -43,8 +43,9 @@ export async function renderKenBurnsVideo(
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas 2D unsupported");
+  const ctx2d = canvas.getContext("2d");
+  if (!ctx2d) throw new Error("Canvas 2D unsupported");
+  const ctx: CanvasRenderingContext2D = ctx2d;
 
   const stream = canvas.captureStream(fps);
   const { mimeType, ext } = pickMime();
