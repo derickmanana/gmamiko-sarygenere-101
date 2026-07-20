@@ -6,10 +6,12 @@ import { flushSync } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
+import { StylingSelectors } from "@/components/StylingSelectors";
+import { buildStylingPrompt } from "@/lib/styling";
+import { renderKenBurnsVideo } from "@/lib/ken-burns-video";
 
 export const Route = createFileRoute("/_authenticated/create/video")({
   component: CreateVideo,
@@ -25,13 +27,6 @@ const CATEGORIES = [
   { id: "other", fr: "Autre", mg: "Hafa", en: "Other" },
 ];
 
-const STYLES = [
-  { id: "auto", fr: "Automatique", mg: "Ho azy", en: "Automatic", desc: "Recommandé", prompt: "cinematic product ad, smooth motion" },
-  { id: "dynamic", fr: "Dynamique", mg: "Mavitrika", en: "Dynamic", desc: "Coupes rapides", prompt: "energetic product ad, fast cuts, punchy motion" },
-  { id: "luxe", fr: "Luxe", mg: "Hatsaran-tsara", en: "Luxury", desc: "Slow-motion premium", prompt: "luxury slow-motion product ad, cinematic lighting, premium mood" },
-  { id: "custom", fr: "Personnalisé", mg: "Manokana", en: "Custom", desc: "Décrivez votre idée", prompt: "" },
-];
-
 function CreateVideo() {
   const { locale } = useI18n();
   const { user } = useAuth();
@@ -40,12 +35,19 @@ function CreateVideo() {
   const [refImage, setRefImage] = useState<string | null>(null);
   const [category, setCategory] = useState<string>("");
   const [duration, setDuration] = useState<6 | 10>(6);
-  const [style, setStyle] = useState<string>("auto");
-  const [customPrompt, setCustomPrompt] = useState("");
+  const [autoMode, setAutoMode] = useState(true);
+  const [subject, setSubject] = useState<string>("woman");
+  const [morphology, setMorphology] = useState<string>("normal");
+  const [accessories, setAccessories] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<string | null>(null);
-  const [isFinal, setIsFinal] = useState(false);
+  const [phase, setPhase] = useState<"" | "image" | "video">("");
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoExt, setVideoExt] = useState<"mp4" | "webm">("mp4");
+  const [previewImg, setPreviewImg] = useState<string | null>(null);
+
+  const toggleAccessory = (id: string) =>
+    setAccessories((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]));
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -57,25 +59,19 @@ function CreateVideo() {
   }
 
   function buildPrompt() {
-    const cat = CATEGORIES.find((c) => c.id === category);
-    const st = STYLES.find((s) => s.id === style)!;
-    return [
-      "advertising poster / video keyframe for a",
-      cat ? cat.en : "product",
-      `${duration}s ad`,
-      st.prompt || customPrompt,
-      "high resolution, motion-ready composition",
-    ].filter(Boolean).join(", ");
+    const base = `cinematic ${duration}s advertising video keyframe, dynamic camera-ready composition, smooth motion, professional lighting`;
+    return buildStylingPrompt(
+      { category, subject, morphology, accessories, keepFace: false, autoMode },
+      base,
+    );
   }
 
   async function handleGenerate() {
     if (!refImage || !category || busy) return;
-    if (style === "custom" && !customPrompt.trim()) return toast.error(L("Décrivez votre style", "Lazao ny fombanao", "Describe your style"));
 
-    setBusy(true); setProgress(5); setResult(null); setIsFinal(false);
+    setBusy(true); setProgress(5); setVideoUrl(null); setPreviewImg(null); setPhase("image");
     try {
-      // Video generation isn't wired to a video API yet — generate a hero keyframe (poster)
-      // via the existing image pipeline so the flow is fully functional.
+      // Step 1: generate the hero frame via the streaming image endpoint.
       const res = await fetch("/api/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -84,7 +80,7 @@ function CreateVideo() {
       if (!res.ok || !res.body) throw new Error(await res.text().catch(() => "Error"));
 
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
-      let buffer = ""; let frameCount = 0; let finalB64: string | null = null;
+      let buffer = ""; let frameCount = 0; let finalDataUrl: string | null = null;
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
@@ -105,72 +101,87 @@ function CreateVideo() {
             const final = payload.type === "image_generation.completed";
             frameCount++;
             flushSync(() => {
-              setResult(dataUrl); setIsFinal(final);
-              setProgress(final ? 100 : Math.min(90, 20 + frameCount * 15));
+              setPreviewImg(dataUrl);
+              setProgress(final ? 55 : Math.min(50, 10 + frameCount * 8));
             });
-            if (final) finalB64 = b64;
-          } catch { /* ignore partials */ }
+            if (final) finalDataUrl = dataUrl;
+          } catch { /* ignore */ }
         }
       }
-      if (!finalB64 && !result) throw new Error("No output");
+      if (!finalDataUrl) throw new Error(L("Échec de la génération de l'image", "Tsy nety", "Image failed"));
+
+      // Step 2: turn the still into a real animated MP4/WebM video.
+      setPhase("video");
+      const { blob, url, ext } = await renderKenBurnsVideo({
+        imageDataUrl: finalDataUrl,
+        durationSec: duration,
+        onProgress: (p) => setProgress(55 + Math.round(p * 0.45)),
+      });
+      if (blob.size < 1000) throw new Error(L("Enregistrement vidéo impossible sur cet appareil", "Tsy afaka mamokatra video", "Video encoding unsupported"));
+
+      setVideoUrl(url);
+      setVideoExt(ext);
+      setProgress(100);
 
       await supabase.from("generations").insert({
         user_id: user!.id,
         module: "video",
         prompt: buildPrompt(),
-        result_type: "image",
+        result_type: "video",
         result_url: null,
         status: "completed",
+        metadata: { duration, ext },
       });
-      toast.success(L("Aperçu vidéo généré", "Vita ny aperçu", "Preview ready"));
-      toast.info(L("Génération vidéo complète bientôt disponible", "Video feno ho avy tsy ho ela", "Full video generation coming soon"));
+      toast.success(L("Vidéo prête", "Vita ny video", "Video ready"));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error");
     } finally {
       setBusy(false);
+      setPhase("");
     }
   }
 
-  function downloadResult() {
-    if (!result) return;
+  function downloadVideo() {
+    if (!videoUrl) return;
     const a = document.createElement("a");
-    a.href = result;
-    a.download = `gmamiko101-video-${duration}s-${Date.now()}.png`;
+    a.href = videoUrl;
+    a.download = `gmamiko101-video-${duration}s-${Date.now()}.${videoExt}`;
     a.click();
   }
 
-  async function shareResult() {
-    if (!result) return;
+  async function shareVideo() {
+    if (!videoUrl) return;
     try {
-      const blob = await (await fetch(result)).blob();
-      const file = new File([blob], "gmamiko101.png", { type: "image/png" });
+      const blob = await (await fetch(videoUrl)).blob();
+      const file = new File([blob], `gmamiko101.${videoExt}`, { type: blob.type || `video/${videoExt}` });
       const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
       if (nav.canShare && nav.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: "GMAMIKO101", text: "Créé avec GMAMIKO101 🇲🇬" });
-      } else if (navigator.share) {
-        await navigator.share({ title: "GMAMIKO101" });
       } else {
-        downloadResult();
+        downloadVideo();
       }
     } catch { /* cancelled */ }
   }
 
-  function reset() { setResult(null); setIsFinal(false); setProgress(0); }
+  function reset() {
+    if (videoUrl) URL.revokeObjectURL(videoUrl);
+    setVideoUrl(null); setPreviewImg(null); setProgress(0);
+  }
 
-  if (result && isFinal) {
+  if (videoUrl) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-6 animate-fade-up">
-        <div className="rounded-3xl overflow-hidden border shadow-elegant bg-card relative">
-          <img src={result} alt="result" className="w-full aspect-square object-cover" />
+        <div className="rounded-3xl overflow-hidden border shadow-elegant bg-black relative">
+          <video src={videoUrl} controls autoPlay loop playsInline className="w-full aspect-square object-cover" />
           <div className="absolute top-3 left-3 rounded-full bg-black/60 backdrop-blur px-3 py-1 text-xs text-white font-medium">
-            🎥 {duration}s · {L("Aperçu", "Aperçu", "Preview")}
+            🎥 {duration}s · {videoExt.toUpperCase()}
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 mt-5">
-          <Button onClick={downloadResult} size="lg" className="h-14 gradient-primary text-primary-foreground shadow-elegant text-base font-semibold">
+          <Button onClick={downloadVideo} size="lg" className="h-14 gradient-primary text-primary-foreground shadow-elegant text-base font-semibold">
             <Download className="h-5 w-5 mr-2" /> {L("Télécharger", "Alaivo", "Download")}
           </Button>
-          <Button onClick={shareResult} size="lg" variant="outline" className="h-14 text-base font-semibold border-2">
+          <Button onClick={shareVideo} size="lg" variant="outline" className="h-14 text-base font-semibold border-2">
             <Share2 className="h-5 w-5 mr-2" /> {L("Partager", "Zarao", "Share")}
           </Button>
         </div>
@@ -181,7 +192,7 @@ function CreateVideo() {
     );
   }
 
-  const canGenerate = refImage && category && (style !== "custom" || customPrompt.trim());
+  const canGenerate = refImage && category;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 animate-fade-up">
@@ -195,7 +206,7 @@ function CreateVideo() {
         </div>
         <div>
           <h1 className="text-xl font-bold">{L("Mode Vidéo", "Horonan-tsary", "Video")}</h1>
-          <p className="text-xs text-muted-foreground">{L("En 5 étapes simples", "Dingana 5 tsotra", "5 simple steps")}</p>
+          <p className="text-xs text-muted-foreground">{L("Vidéo animée cinématique", "Video mihetsika", "Cinematic animated video")}</p>
         </div>
       </div>
 
@@ -243,29 +254,19 @@ function CreateVideo() {
           </div>
         </StepCard>
 
-        <StepCard n={4} title={L("Style", "Endrika", "Style")} done={!!style}>
-          <div className="grid grid-cols-2 gap-2">
-            {STYLES.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setStyle(s.id)}
-                className={`text-left px-3 py-3 rounded-xl border-2 transition-smooth ${style === s.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
-              >
-                <div className="text-sm font-semibold">{L(s.fr, s.mg, s.en)}</div>
-                <div className="text-[11px] text-muted-foreground mt-0.5">{s.desc}</div>
-              </button>
-            ))}
-          </div>
-          {style === "custom" && (
-            <Textarea
-              value={customPrompt}
-              onChange={(e) => setCustomPrompt(e.target.value)}
-              placeholder={L("Décrivez le style vidéo", "Lazao ny endriky ny video", "Describe the video style")}
-              className="mt-3"
-              rows={3}
-              maxLength={500}
-            />
-          )}
+        <StepCard n={4} title={L("Sujet & Style IA", "IA & endrika", "Subject & AI styling")} done>
+          <StylingSelectors
+            locale={locale}
+            autoMode={autoMode}
+            setAutoMode={setAutoMode}
+            subject={subject}
+            setSubject={setSubject}
+            morphology={morphology}
+            setMorphology={setMorphology}
+            accessories={accessories}
+            toggleAccessory={toggleAccessory}
+            disabled={busy}
+          />
         </StepCard>
 
         <div className="pt-2">
@@ -274,9 +275,22 @@ function CreateVideo() {
             disabled={!canGenerate || busy}
             className="w-full h-14 gradient-secondary text-primary-foreground shadow-elegant text-base font-bold rounded-2xl"
           >
-            {busy ? (<><Loader2 className="h-5 w-5 mr-2 animate-spin" /> {L("Génération en cours...", "Mamorona...", "Generating...")}</>) : (<><Sparkles className="h-5 w-5 mr-2" /> {L("Générer", "Hamorona", "Generate")}</>)}
+            {busy ? (
+              <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> {phase === "video" ? L("Rendu vidéo...", "Mamokatra video...", "Rendering video...") : L("Génération...", "Mamorona...", "Generating...")}</>
+            ) : (
+              <><Sparkles className="h-5 w-5 mr-2" /> {L("Générer la vidéo", "Hamorona video", "Generate video")}</>
+            )}
           </Button>
-          {busy && <Progress value={progress} className="h-2 mt-3" />}
+          {busy && (
+            <div className="mt-3 space-y-2">
+              <Progress value={progress} className="h-2" />
+              {previewImg && (
+                <div className="rounded-xl overflow-hidden border">
+                  <img src={previewImg} alt="preview" className={`w-full aspect-square object-cover ${phase === "image" ? "blur-xl" : ""}`} />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

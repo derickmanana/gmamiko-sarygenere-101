@@ -11,6 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
+import { StylingSelectors } from "@/components/StylingSelectors";
+import { buildStylingPrompt } from "@/lib/styling";
 
 export const Route = createFileRoute("/_authenticated/create/photo")({
   component: CreatePhoto,
@@ -38,41 +40,45 @@ function CreatePhoto() {
   const { user } = useAuth();
   const L = (fr: string, mg: string, en: string) => (locale === "mg" ? mg : locale === "en" ? en : fr);
 
-  const [step, setStep] = useState(1);
   const [refImage, setRefImage] = useState<string | null>(null);
   const [category, setCategory] = useState<string>("");
   const [keepFace, setKeepFace] = useState(false);
   const [style, setStyle] = useState<string>("auto");
   const [customPrompt, setCustomPrompt] = useState("");
+  const [autoMode, setAutoMode] = useState(true);
+  const [subject, setSubject] = useState<string>("woman");
+  const [morphology, setMorphology] = useState<string>("normal");
+  const [accessories, setAccessories] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<string | null>(null);
   const [isFinal, setIsFinal] = useState(false);
+
+  const toggleAccessory = (id: string) =>
+    setAccessories((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]));
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
     if (f.size > 10 * 1024 * 1024) return toast.error(L("Image trop grande (max 10MB)", "Sary lehibe loatra", "Image too large"));
     const reader = new FileReader();
-    reader.onload = () => { setRefImage(reader.result as string); setStep(Math.max(step, 2)); };
+    reader.onload = () => setRefImage(reader.result as string);
     reader.readAsDataURL(f);
   }
 
   function buildPrompt() {
-    const cat = CATEGORIES.find((c) => c.id === category);
     const st = STYLES.find((s) => s.id === style)!;
-    const parts = [
-      cat ? `${cat.en} product` : "product",
-      st.prompt || customPrompt,
-      keepFace ? "keep the original face identity intact, preserve the model's face features" : "",
-      "high resolution, advertising quality, ready for social media",
-    ].filter(Boolean);
-    return parts.join(", ");
+    const base = st.prompt || customPrompt;
+    return buildStylingPrompt(
+      { category, subject, morphology, accessories, keepFace, autoMode },
+      base,
+    );
   }
 
   async function handleGenerate() {
     if (!refImage || !category || busy) return;
-    if (style === "custom" && !customPrompt.trim()) return toast.error(L("Décrivez votre style", "Lazao ny fombanao", "Describe your style"));
+    if (!autoMode && style === "custom" && !customPrompt.trim())
+      return toast.error(L("Décrivez votre style", "Lazao ny fombanao", "Describe your style"));
 
     setBusy(true); setProgress(5); setResult(null); setIsFinal(false);
     try {
@@ -109,7 +115,7 @@ function CreatePhoto() {
               setProgress(final ? 100 : Math.min(90, 20 + frameCount * 15));
             });
             if (final) finalB64 = b64;
-          } catch { /* ignore partials */ }
+          } catch { /* ignore */ }
         }
       }
       if (!finalB64 && !result) throw new Error("No output");
@@ -150,16 +156,13 @@ function CreatePhoto() {
         await navigator.share({ title: "GMAMIKO101", text: "Créé avec GMAMIKO101 🇲🇬" });
       } else {
         downloadResult();
-        toast.info(L("Partage non supporté — image téléchargée", "Tsy azo zaraina — tafiditra", "Share unsupported — downloaded"));
+        toast.info(L("Partage non supporté — image téléchargée", "Tsy azo zaraina", "Share unsupported"));
       }
-    } catch { /* user cancelled */ }
+    } catch { /* cancelled */ }
   }
 
-  function reset() {
-    setResult(null); setIsFinal(false); setProgress(0);
-  }
+  function reset() { setResult(null); setIsFinal(false); setProgress(0); }
 
-  // Result screen
   if (result && isFinal) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-6 animate-fade-up">
@@ -181,7 +184,7 @@ function CreatePhoto() {
     );
   }
 
-  const canGenerate = refImage && category && (style !== "custom" || customPrompt.trim());
+  const canGenerate = refImage && category && (autoMode || style !== "custom" || customPrompt.trim());
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 animate-fade-up">
@@ -195,12 +198,11 @@ function CreatePhoto() {
         </div>
         <div>
           <h1 className="text-xl font-bold">{L("Mode Photo", "Sary", "Photo")}</h1>
-          <p className="text-xs text-muted-foreground">{L("En 5 étapes simples", "Dingana 5 tsotra", "5 simple steps")}</p>
+          <p className="text-xs text-muted-foreground">{L("Simple et intelligent", "Tsotra sy hendry", "Simple & smart")}</p>
         </div>
       </div>
 
       <div className="space-y-4">
-        {/* Step 1: Upload */}
         <StepCard n={1} title={L("Importer une photo", "Ampidiro ny sary", "Import a photo")} done={!!refImage}>
           <label className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-6 cursor-pointer hover:bg-accent/40 transition-smooth">
             {refImage ? (
@@ -216,14 +218,13 @@ function CreatePhoto() {
           </label>
         </StepCard>
 
-        {/* Step 2: Category */}
         <StepCard n={2} title={L("Catégorie du produit", "Sokajin'ny vokatra", "Product category")} done={!!category}>
           <div className="grid grid-cols-2 gap-2">
             {CATEGORIES.map((c) => (
               <button
                 key={c.id}
                 onClick={() => setCategory(c.id)}
-                className={`text-sm px-3 py-3 rounded-xl border-2 transition-smooth text-left font-medium ${category === c.id ? "border-primary bg-primary/5 text-foreground" : "border-border hover:border-primary/40"}`}
+                className={`text-sm px-3 py-3 rounded-xl border-2 transition-smooth text-left font-medium ${category === c.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
               >
                 {L(c.fr, c.mg, c.en)}
               </button>
@@ -231,46 +232,60 @@ function CreatePhoto() {
           </div>
         </StepCard>
 
-        {/* Step 3: Keep face */}
-        <StepCard n={3} title={L("Conserver le visage original", "Tazomy ny endrika tany am-boalohany", "Keep original face")} done>
-          <div className="flex items-center justify-between rounded-xl bg-muted/50 p-4">
-            <div className="pr-3">
-              <p className="text-sm font-medium">{keepFace ? L("Activé", "Alefa", "On") : L("Désactivé", "Tsy alefa", "Off")}</p>
-              <p className="text-xs text-muted-foreground">
-                {L("Utile pour les mannequins", "Ilaina raha misy olona", "Useful for models")}
-              </p>
+        <StepCard n={3} title={L("Sujet & Style IA", "IA & endrika", "Subject & AI styling")} done>
+          <StylingSelectors
+            locale={locale}
+            autoMode={autoMode}
+            setAutoMode={setAutoMode}
+            subject={subject}
+            setSubject={setSubject}
+            morphology={morphology}
+            setMorphology={setMorphology}
+            accessories={accessories}
+            toggleAccessory={toggleAccessory}
+            disabled={busy}
+          />
+        </StepCard>
+
+        {!autoMode && subject !== "product" && (
+          <StepCard n={4} title={L("Conserver le visage original", "Tazomy ny endrika", "Keep original face")} done>
+            <div className="flex items-center justify-between rounded-xl bg-muted/50 p-4">
+              <div className="pr-3">
+                <p className="text-sm font-medium">{keepFace ? L("Activé", "Alefa", "On") : L("Désactivé", "Tsy alefa", "Off")}</p>
+                <p className="text-xs text-muted-foreground">{L("Utile pour les mannequins", "Ilaina raha misy olona", "Useful for models")}</p>
+              </div>
+              <Switch checked={keepFace} onCheckedChange={setKeepFace} />
             </div>
-            <Switch checked={keepFace} onCheckedChange={setKeepFace} />
-          </div>
-        </StepCard>
+          </StepCard>
+        )}
 
-        {/* Step 4: Style */}
-        <StepCard n={4} title={L("Style", "Endrika", "Style")} done={!!style}>
-          <div className="grid grid-cols-2 gap-2">
-            {STYLES.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setStyle(s.id)}
-                className={`text-left px-3 py-3 rounded-xl border-2 transition-smooth ${style === s.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
-              >
-                <div className="text-sm font-semibold">{L(s.fr, s.mg, s.en)}</div>
-                <div className="text-[11px] text-muted-foreground mt-0.5">{s.desc}</div>
-              </button>
-            ))}
-          </div>
-          {style === "custom" && (
-            <Textarea
-              value={customPrompt}
-              onChange={(e) => setCustomPrompt(e.target.value)}
-              placeholder={L("Ex : fond marbre blanc, lumière douce", "Ohatra: marbra fotsy", "e.g. white marble background")}
-              className="mt-3"
-              rows={3}
-              maxLength={500}
-            />
-          )}
-        </StepCard>
+        {!autoMode && (
+          <StepCard n={5} title={L("Style visuel", "Endrika", "Visual style")} done={!!style}>
+            <div className="grid grid-cols-2 gap-2">
+              {STYLES.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => setStyle(s.id)}
+                  className={`text-left px-3 py-3 rounded-xl border-2 transition-smooth ${style === s.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
+                >
+                  <div className="text-sm font-semibold">{L(s.fr, s.mg, s.en)}</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">{s.desc}</div>
+                </button>
+              ))}
+            </div>
+            {style === "custom" && (
+              <Textarea
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+                placeholder={L("Ex : fond marbre blanc, lumière douce", "Ohatra: marbra fotsy", "e.g. white marble background")}
+                className="mt-3"
+                rows={3}
+                maxLength={500}
+              />
+            )}
+          </StepCard>
+        )}
 
-        {/* Step 5: Generate */}
         <div className="pt-2">
           <Button
             onClick={handleGenerate}
