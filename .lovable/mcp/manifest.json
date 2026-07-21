@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "sdk_version": "0.24.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "none"
+  },
+  "mcp": {
+    "server": {
+      "name": "gmamiko101-mcp",
+      "version": "0.1.0",
+      "title": "GMAMIKO101"
+    },
+    "tools": [
+      {
+        "name": "generate_product_photo",
+        "title": "Generate product ad photo",
+        "description": "Generate a premium, e-commerce ready product advertisement photo from a text prompt (and optional reference image data URL). Returns a PNG. Does not read or write any user data. Powered by GMAMIKO101 + Gemini.",
+        "annotations": {
+          "readOnlyHint": false,
+          "idempotentHint": false,
+          "openWorldHint": true
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "prompt": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 2000,
+              "description": "Description of the product ad to generate — subject, style, mood, background, lighting, etc."
+            },
+            "reference_image_data_url": {
+              "type": "string",
+              "pattern": "^data\\:image\\/",
+              "maxLength": 15000000,
+              "description": "Optional reference image as a data URL (data:image/png;base64,... or data:image/jpeg;base64,...). Used as the product to keep faithful."
+            }
+          },
+          "required": [
+            "prompt"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
