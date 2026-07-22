@@ -206,7 +206,7 @@ function CreatePhoto() {
         <StepCard n={1} title={L("Importer une photo", "Ampidiro ny sary", "Import a photo")} done={!!refImage}>
           <label className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-6 cursor-pointer hover:bg-accent/40 transition-smooth">
             {refImage ? (
-              <img src={refImage} alt="ref" className="max-h-48 rounded-lg" />
+              <img src={refImage} alt="ref" loading="lazy" decoding="async" className="max-h-48 rounded-lg" />
             ) : (
               <>
                 <Upload className="h-8 w-8 text-muted-foreground" />
