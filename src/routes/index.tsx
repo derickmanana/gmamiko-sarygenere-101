@@ -2,8 +2,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Camera, Video } from "lucide-react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { InstallPWAButton } from "@/components/InstallPWAButton";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
+
 
 export const Route = createFileRoute("/")({
   component: Landing,
@@ -87,7 +89,9 @@ function Landing() {
         </div>
 
         <div className="mt-8 sm:mt-12 h-1.5 w-32 sm:w-40 rounded-full gradient-flag" />
+        <div className="mt-6"><InstallPWAButton /></div>
       </main>
+
     </div>
   );
 }
