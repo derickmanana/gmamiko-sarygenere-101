@@ -129,8 +129,11 @@ function RootComponent() {
         if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
       }
     });
+    // Register the PWA service worker after hydration (guarded — no-op in preview/dev/iframe).
+    void registerAppServiceWorker();
     return () => sub.subscription.unsubscribe();
   }, [router, queryClient]);
+
 
   return (
     <QueryClientProvider client={queryClient}>
