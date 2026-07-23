@@ -44,15 +44,20 @@ export async function renderKenBurnsVideo(
   canvas.width = size;
   canvas.height = size;
   const ctx2d = canvas.getContext("2d");
-  if (!ctx2d) throw new Error("Canvas 2D unsupported");
+  if (!ctx2d) throw new Error("Votre navigateur ne prend pas en charge la génération vidéo (Canvas 2D indisponible). Essayez Chrome ou Samsung Internet à jour.");
   const ctx: CanvasRenderingContext2D = ctx2d;
 
-  const stream = canvas.captureStream(fps);
+  const canvasWithCapture = canvas as HTMLCanvasElement & { captureStream?: (fps: number) => MediaStream };
+  if (typeof canvasWithCapture.captureStream !== "function" || typeof window.MediaRecorder === "undefined") {
+    throw new Error("Votre navigateur ne prend pas en charge l'enregistrement vidéo. Mettez à jour Chrome / Android System WebView (v75+) ou utilisez Samsung Internet.");
+  }
+  const stream = canvasWithCapture.captureStream(fps);
   const { mimeType, ext } = pickMime();
   const rec = new MediaRecorder(
     stream,
     mimeType ? { mimeType, videoBitsPerSecond: 5_000_000 } : { videoBitsPerSecond: 5_000_000 },
   );
+
   const chunks: BlobPart[] = [];
   rec.ondataavailable = (e) => e.data.size > 0 && chunks.push(e.data);
 
