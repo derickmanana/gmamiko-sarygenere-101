@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Menu, LayoutDashboard, Sparkles, History as HistoryIcon, Settings, LogOut, Store, Crown, Languages, Palette, HelpCircle, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { ThemeToggle } from "./ThemeToggle";
@@ -41,20 +41,23 @@ export function AppMenu() {
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="w-[85vw] sm:w-[380px] p-0 flex flex-col">
-        <SheetHeader className="px-5 py-5 border-b">
-          <SheetTitle className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full gradient-primary flex items-center justify-center text-primary-foreground font-bold">
+      <SheetContent side="right" className="flex h-dvh max-h-dvh w-[85vw] flex-col overflow-hidden p-0 sm:w-[380px]">
+        <SheetHeader className="shrink-0 border-b px-5 py-5">
+          <SheetTitle className="flex min-w-0 items-center gap-3 pr-8">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full gradient-primary font-bold text-primary-foreground">
               {user?.email?.[0]?.toUpperCase() ?? "G"}
             </div>
-            <div className="flex flex-col items-start">
+            <div className="flex min-w-0 flex-col items-start">
               <span className="text-sm font-semibold">GMAMIKO101</span>
               <span className="text-xs text-muted-foreground truncate max-w-[220px]">{user?.email}</span>
             </div>
           </SheetTitle>
+          <SheetDescription className="sr-only">
+            {L("Menu principal et options du compte", "Menu lehibe sy safidin'ny kaonty", "Main menu and account options")}
+          </SheetDescription>
         </SheetHeader>
 
-        <nav className="flex-1 overflow-y-auto px-2 py-3">
+        <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3 pb-5">
           <div className="flex flex-col">
             <Link
               to="/"
@@ -109,7 +112,7 @@ export function AppMenu() {
           </a>
         </nav>
 
-        <div className="border-t p-3">
+        <div className="shrink-0 border-t p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           <Button variant="ghost" onClick={signOut} className="w-full justify-start text-destructive hover:text-destructive">
             <LogOut className="h-4 w-4 mr-2" /> {L("Se déconnecter", "Hivoaka", "Sign out")}
           </Button>
