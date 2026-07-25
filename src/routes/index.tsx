@@ -34,7 +34,7 @@ function Landing() {
   const videoTo = user ? "/create/video" : "/auth";
 
   return (
-    <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
+    <div className="min-h-screen bg-background flex flex-col relative overflow-x-hidden">
       <div className="absolute inset-0 gradient-hero pointer-events-none" />
 
       <header className="relative z-10 flex items-center justify-between gap-2 px-3 sm:px-8 py-3 sm:py-4">
