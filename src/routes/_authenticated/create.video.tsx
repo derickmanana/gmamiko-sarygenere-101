@@ -11,6 +11,8 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { StylingSelectors } from "@/components/StylingSelectors";
 import { buildStylingPrompt } from "@/lib/styling";
+import { useAiEngine } from "@/lib/engine";
+import { EngineSelector } from "@/components/EngineSelector";
 import { renderKenBurnsVideo } from "@/lib/ken-burns-video";
 
 export const Route = createFileRoute("/_authenticated/create/video")({
@@ -39,6 +41,7 @@ function CreateVideo() {
   const [subject, setSubject] = useState<string>("woman");
   const [morphology, setMorphology] = useState<string>("normal");
   const [accessories, setAccessories] = useState<string[]>([]);
+  const { engine, setEngine } = useAiEngine();
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [phase, setPhase] = useState<"" | "image" | "video">("");
@@ -75,7 +78,7 @@ function CreateVideo() {
       const res = await fetch("/api/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: buildPrompt(), refImage, module: "video" }),
+        body: JSON.stringify({ prompt: buildPrompt(), refImage, module: "video", engine }),
       });
       if (!res.ok || !res.body) throw new Error(await res.text().catch(() => "Error"));
 
@@ -267,6 +270,9 @@ function CreateVideo() {
             toggleAccessory={toggleAccessory}
             disabled={busy}
           />
+          <div className="mt-4 border-t pt-4">
+            <EngineSelector engine={engine} setEngine={setEngine} disabled={busy} />
+          </div>
         </StepCard>
 
         <div className="pt-2">

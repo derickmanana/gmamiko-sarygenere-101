@@ -13,6 +13,8 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { StylingSelectors } from "@/components/StylingSelectors";
 import { buildStylingPrompt } from "@/lib/styling";
+import { useAiEngine } from "@/lib/engine";
+import { EngineSelector } from "@/components/EngineSelector";
 
 export const Route = createFileRoute("/_authenticated/create/photo")({
   component: CreatePhoto,
@@ -49,6 +51,7 @@ function CreatePhoto() {
   const [subject, setSubject] = useState<string>("woman");
   const [morphology, setMorphology] = useState<string>("normal");
   const [accessories, setAccessories] = useState<string[]>([]);
+  const { engine, setEngine } = useAiEngine();
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<string | null>(null);
@@ -85,7 +88,7 @@ function CreatePhoto() {
       const res = await fetch("/api/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: buildPrompt(), refImage, module: "product-photography" }),
+        body: JSON.stringify({ prompt: buildPrompt(), refImage, module: "product-photography", engine }),
       });
       if (!res.ok || !res.body) throw new Error(await res.text().catch(() => "Error"));
 
@@ -245,6 +248,9 @@ function CreatePhoto() {
             toggleAccessory={toggleAccessory}
             disabled={busy}
           />
+          <div className="mt-4 border-t pt-4">
+            <EngineSelector engine={engine} setEngine={setEngine} disabled={busy} />
+          </div>
         </StepCard>
 
         {!autoMode && subject !== "product" && (
